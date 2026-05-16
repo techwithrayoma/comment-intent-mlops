@@ -1,0 +1,18 @@
+from enum import StrEnum
+
+class PipelineEnum(StrEnum):
+    
+    PIPELINE = "PIPELINE"
+    STORAGE = 'STORAGE'
+    INGESTION = "INGESTION"
+    CLEAN = "CLEAN"
+    LABELING = "LABELING"
+    TRANSFORMATION = "TRANSFORMATION"
+    PRE_TRAINING = "PRE_TRAINING"
+    TRAINING = "TRAINING"
+    EVALUATION = "EVALUATION"
+
+    
+class StorageType(StrEnum):
+    LOCAL = "LOCAL"
+    S3 = "S3"

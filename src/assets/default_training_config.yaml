@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# default_training_config.yaml
+# Base config for comment-intent LoRA fine-tuning with LLaMA-Factory.
+#
+# Rules:
+#   - This file = stable architecture decisions (change rarely)
+#   - Per-run tuning (lr, epochs) = pass via API overrides
+#   - Pipeline auto-injects: dataset, eval_dataset, output_dir, report_to
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model_name_or_path: Qwen/Qwen2.5-1.5B-Instruct
+
+# ── Task ──────────────────────────────────────────────────────────────────────
+stage: sft
+do_train: true
+finetuning_type: lora
+
+# ── LoRA ──────────────────────────────────────────────────────────────────────
+lora_rank: 64
+lora_target: all
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+# dataset, eval_dataset, dataset_dir, output_dir → injected by pipeline
+cutoff_len: 3500
+overwrite_cache: true
+preprocessing_num_workers: 4
+
+# ── Training ──────────────────────────────────────────────────────────────────
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+learning_rate: 1.0e-4
+num_train_epochs: 3
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+
+# ── Precision ─────────────────────────────────────────────────────────────────
+bf16: true
+pure_bf16: true
+
+# ── Evaluation ────────────────────────────────────────────────────────────────
+val_size: 0.0          # we handle our own split — LLaMA-Factory reads our val.jsonl
+per_device_eval_batch_size: 2
+eval_strategy: steps
+eval_steps: 100
+
+# ── Saving ────────────────────────────────────────────────────────────────────
+save_strategy: steps
+save_steps: 100
+save_total_limit: 2
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging_steps: 10
+report_to: none        # injected by pipeline — keeping here as a visible reminder
+
+# ── Hub ───────────────────────────────────────────────────────────────────────
+push_to_hub: false     # upload to S3 instead — pipeline handles this
+
+
+# ── RunPod / GPU ──────────────────────────────────────────────────────────────
+# These are used for cost tracking in the DB — not passed to LLaMA-Factory
+gpu_type: "RTX 4090"
+gpu_cost_per_hour: 1.50        # USD/hr on RunPod

@@ -1,0 +1,69 @@
+services:
+
+  # ---------------- APP ----------------
+  fastapi:
+    build:
+      context: ../
+      dockerfile: docker/fastapi/Dockerfile
+    container_name: fastapi
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./env/.env.fastapi
+    environment:
+      - PYTHONPATH=/app/src
+    volumes:
+      - ../:/app
+    networks:
+      - backend
+    restart: always
+
+
+  # ---------------- CELERY WORKER ----------------
+  celery_worker:
+    build:
+      context: ../
+      dockerfile: docker/fastapi/Dockerfile
+    container_name: celery_worker
+    environment:
+      - PYTHONPATH=/app/src
+    volumes:
+      - ../:/app
+    command: >
+      celery -A app.celery_app:celery_app worker
+      --loglevel=info
+      --queues=cpu
+      --hostname=cpu-worker@%h
+      --concurrency=4
+    env_file:
+      - ./env/.env.fastapi
+    networks:
+      - backend
+    restart: always
+
+
+  # ---------------- MLFlow ----------------
+  mlflow:
+    build:
+      context: ../
+      dockerfile: docker/mlflow/Dockerfile
+    container_name: mlflow
+    env_file:
+      - ./env/.env.mlflow
+    ports:
+      - "5001:5022"
+    networks:
+      - backend
+    restart: always
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5022
+      --backend-store-uri sqlite:///mlflow.db
+      --default-artifact-root "s3://ryam-mlflow-bucket-mlops/mlflow-artifacts"
+
+
+# ---------------- NETWORKS & VOLUMES ----------------
+networks:
+  backend:
+    driver: bridge

@@ -1,0 +1,19 @@
+{
+  "total": 19,
+  "train": 15,
+  "val": 4,
+  "val_pct": 21.05,
+  "random_state": 42,
+  "stratified": false,
+  "train_dist": {
+    "Question": 11,
+    "Complaint": 3,
+    "Praise": 1
+  },
+  "val_dist": {
+    "Praise": 1,
+    "Statement": 1,
+    "Complaint": 1,
+    "Question": 1
+  }
+}

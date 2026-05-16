@@ -1,0 +1,14 @@
+{
+  "cost_tracker": {
+    "total_cost": 0.00048134999999999986,
+    "llm_cost": 0.00048134999999999986,
+    "llm_count": 19,
+    "cached_count": 0,
+    "total_tokens_in": 2281,
+    "total_tokens_out": 232
+  },
+  "rows": 19,
+  "model_name": "comment-intent",
+  "version": "v3",
+  "stage": "labeling"
+}
