@@ -1,0 +1,36 @@
+# env files (ALL environments)
+.env
+.env.*
+**/.env*
+docker/env/.env*
+docker/runpod/.env*
+
+# allow example files only
+!.env.example
+!docker/env/.env.example*
+!docker/runpod/.env.example*
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# logs
+*.log
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.pytest_cache/
+
+# ml
+ml/data/
+
+# dvc
+BarqPulse/dvc_storage/
+.dvc/cache/

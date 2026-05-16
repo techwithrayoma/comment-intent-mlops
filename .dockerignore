@@ -1,0 +1,11 @@
+**/__pycache__
+**/.git
+data
+model
+models
+checkpoints
+outputs
+training_assets
+wandb
+mlruns
+.cache
