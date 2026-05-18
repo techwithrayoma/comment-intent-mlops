@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # MLflow Configuration
     # =========================
-    mlflow_tracking_uri: str
+    MLFLOW_TRACKING_URI: str
 
     # Model Configuration
     # =========================
