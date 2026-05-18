@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from typing import Union
 
+from src.core.config import get_settings
 from src.core.logger import pipeline_logger
 
 logger = pipeline_logger
@@ -225,8 +226,9 @@ class ModelTraining:
         mlflow.set_experiment(f"{self.project}-{self.version}")
 
         # ── GPU config from YAML ──────────────────────────────────────────────
-        gpu_type          = self.config.get("gpu_type",             "unknown")
-        gpu_cost_per_hour = float(self.config.get("gpu_cost_per_hour", 1.50))
+        settings = get_settings()
+        gpu_type          = settings.GPU_TYPE
+        gpu_cost_per_hour = settings.GPU_COST_PER_HOUR
 
         start_time = time.time()
 

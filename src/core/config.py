@@ -45,9 +45,19 @@ class Settings(BaseSettings):
     CELERY_WORKER_CONCURRENCY_CPU: int
     CELERY_WORKER_CONCURRENCY_GPU: int
 
+    # MLflow Configuration
+    # =========================
     mlflow_tracking_uri: str
+
+    # Model Configuration
+    # =========================
     MODEL_NAME: str
     
+    # GPU Configuration
+    # =========================
+    GPU_TYPE=str
+    GPU_COST_PER_HOUR_USD=float
+
     class Config:
         env_file = str(Path(__file__).resolve().parents[1] / ".env")
 
