@@ -17,7 +17,7 @@ fi
 
 echo "=== Setting env ==="
 set -a && source src/.env && set +a
-export PYTHONPATH=/root/comment-intent-mlops  # ← fix this to your actual repo folder name
+export PYTHONPATH=/root/comment-intent-mlops  
 
 echo "=== Starting GPU worker ==="
 python -m celery -A src.app.celery_app:celery_app worker \
