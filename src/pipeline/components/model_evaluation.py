@@ -179,8 +179,19 @@ class ModelEvaluation:
             if (i + 1) % 10 == 0:
                 logger.info(f"[ModelEvaluation] Progress: {i + 1}/{len(df)}")
 
+        
+        # ── Filter failed predictions ─────────────────────────────────────────
+        failed = sum(1 for p in y_pred if p is None)
+        if failed:
+            logger.warning(f"[ModelEvaluation] {failed} predictions failed — excluding from metrics")
+
+        pairs        = [(t, p) for t, p in zip(y_true, y_pred) if p is not None]
+        y_true_clean = [t for t, p in pairs]
+        y_pred_clean = [p for t, p in pairs]
+        
+        
         # ── Metrics ───────────────────────────────────────────────────────
-        accuracy    = accuracy_score(y_true, y_pred)
+        accuracy    = accuracy_score(y_true_clean, y_pred_clean)
         f1_macro    = f1_score(y_true, y_pred, average="macro",    zero_division=0)
         f1_weighted = f1_score(y_true, y_pred, average="weighted", zero_division=0)
         correct     = sum(t == p for t, p in zip(y_true, y_pred))
@@ -211,6 +222,7 @@ class ModelEvaluation:
             mlflow.log_metric("eval/correct",     metrics["correct"])
             mlflow.log_metric("eval/total",       metrics["total"])
             mlflow.log_text(report, "eval_classification_report.txt")
+            mlflow.log_metric("eval/failed_predictions", failed)
         except Exception:
             pass  # no active MLflow run — fine, metrics already saved to S3
 
