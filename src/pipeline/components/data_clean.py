@@ -9,8 +9,6 @@ class DataClean:
         self.df = ingested_data.copy()
 
     def clean_training_data(self) -> pd.DataFrame:
-        initial_count = len(self.df)
-
         self.df = (
             self.df
             .pipe(self._rename_columns)

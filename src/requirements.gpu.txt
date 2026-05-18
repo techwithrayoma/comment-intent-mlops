@@ -1,0 +1,8 @@
+# GPU worker dependencies — install AFTER requirements.txt on RunPod
+transformers>=4.49.0,<=4.57.1,!=4.52.0,!=4.57.0
+peft>=0.14.0,<=0.17.1
+datasets>=2.16.0,<=4.0.0
+accelerate>=1.3.0,<=1.11.0
+scikit-learn
+tqdm
+bitsandbytes

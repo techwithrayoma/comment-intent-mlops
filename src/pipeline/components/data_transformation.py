@@ -5,12 +5,6 @@ from src.pipeline.templates.finetune_data import INSTRUCTION_FINETUNE, SYSTEM_FI
 
 
 class DataTransformation:
-    """
-    Transforms labeled comments into LLaMA-Factory SFT format.
-
-    Input  columns: 'comment', 'intent'
-    Output columns: 'system', 'instruction', 'input', 'output', 'history'
-    """
 
     REQUIRED_COLUMNS = {"comment", "intent"}
 

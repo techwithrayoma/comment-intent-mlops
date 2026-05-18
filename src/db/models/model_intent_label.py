@@ -1,5 +1,7 @@
 from datetime import datetime
-
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+import uuid
 from sqlalchemy import (
     BigInteger,
     DateTime,
@@ -20,7 +22,11 @@ class ModelIntentLabel(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
-    comment_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    comment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        index=True,
+        nullable=False,
+    )
 
     model_name: Mapped[str] = mapped_column(String(100), nullable=False)
 

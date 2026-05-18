@@ -9,7 +9,7 @@ celery_app = Celery(
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
     include=[
-        "tasks.training_tasks",
+        "src.tasks.training_tasks",
     ],
 )
 

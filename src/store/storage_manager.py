@@ -1,18 +1,4 @@
-"""
-storage_manager.py
-──────────────────
-Production-grade caching abstraction for ML pipeline storage.
-
-Contract
-────────
-  • Every artifact is addressed by (stage, filename).
-  • Reads:  LOCAL first → S3 fallback → auto-populate local cache.
-  • Writes: write-through (local + S3), skip local if already cached.
-  • Callers never touch storage clients directly.
-"""
-
 from __future__ import annotations
-
 import io
 import json
 import logging
@@ -23,7 +9,8 @@ import pandas as pd
 import yaml
 
 from src.core.logger import pipeline_logger
-from src.pipeline.pipeline_enum import PipelineEnum, StorageType
+from src.pipeline.pipeline_enum import PipelineEnum
+from .storage_enum import StorageType
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -197,7 +184,6 @@ class StorageManager:
         "training/evaluation",
         "mlflow",
         "mlflow/artifacts",
-        "model",
         "logs",
         "benchmark",
     ]
@@ -382,23 +368,26 @@ class StorageManager:
         )
         return uploaded
 
-    def copy_stage(self, src_stage: str, dst_stage: str) -> int:
-        """
-        Copy all artifacts from src_stage into dst_stage within the same
-        project/version. Used to snapshot benchmark data into a versioned folder.
-        """
-        backend = self._s3 or self._local
-        src_prefix = self._key(src_stage, "")
-        keys = backend.list_prefix(src_prefix)
+    def copy_benchmark_from_root(self, dst_stage: str = "benchmark") -> int:
+        if not self._s3:
+            raise RuntimeError("Requires S3 backend.")
+
+        src_prefix = f"{self.project}/benchmark/"   # comment-intent/benchmark/
+        dst_prefix = self._key(dst_stage, "")        # comment-intent/v4/benchmark/
+
+        keys = self._s3.list_prefix(src_prefix)
         copied = 0
         for src_key in keys:
             filename = src_key[len(src_prefix):]
-            dst_key = self._key(dst_stage, filename)
-            backend.copy_key(src_key, dst_key)
+            if not filename:
+                continue
+            dst_key = f"{dst_prefix}{filename}"
+            self._s3.copy_key(src_key, dst_key)
             copied += 1
 
         self._log.info(
-            f"[{PipelineEnum.STORAGE}] copied {copied} files: {src_stage}/ → {dst_stage}/"
+            f"[{PipelineEnum.STORAGE}] copied {copied} files: "
+            f"{src_prefix} → {dst_prefix}"
         )
         return copied
 

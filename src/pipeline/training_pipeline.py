@@ -1,10 +1,8 @@
 import hashlib
 import os
-from datetime import datetime
 import boto3
 import pandas as pd
 
-from src.core.logger import pipeline_logger
 from src.pipeline.components.data_clean import DataClean
 from src.pipeline.components.data_ingestion import IngestData
 from src.pipeline.components.data_labeling import DataLabeling
@@ -18,6 +16,7 @@ from src.store.llm.llm_provider_factory import LLMProviderFactory
 from src.store.storage_manager import LocalBackend, S3Backend, StorageManager
 from .pipeline_enum import PipelineEnum
 from src.repository.model_intent_label_repository import ModelIntentLabelRepository
+from src.core.logger import pipeline_logger
 
 
 class TrainPipeline:
@@ -97,7 +96,7 @@ class TrainPipeline:
 
         self.logger.info(f"[{PipelineEnum.STORAGE}] Creating folder structure...")
         self.storage.create_folder_structure()
-        self.storage.copy_stage(src_stage="../../benchmark", dst_stage="benchmark")
+        self.storage.copy_benchmark_from_root()
         self.logger.info(f"[{PipelineEnum.STORAGE}] Folders ready.")
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -170,14 +169,7 @@ class TrainPipeline:
                     stage="processed_data", filename="label_data.csv"
                 )
 
-                self.logger.info(
-                    f"[{PipelineEnum.LABELING}] CSV columns: {labeled_df.columns.tolist()}"
-                )
-                self.logger.info(
-                    f"[{PipelineEnum.LABELING}] comment_id sample: {labeled_df.get('comment_id', 'COLUMN MISSING')}"
-                )
-
-                comment_ids   = labeled_df["comment_id"].dropna().astype(int).tolist() \
+                comment_ids   = labeled_df["comment_id"].dropna().astype(str).tolist() \
                                 if "comment_id" in labeled_df.columns else []
 
                 self.logger.info(
@@ -208,7 +200,7 @@ class TrainPipeline:
                 ]
                 recovery_records = [
                     {
-                        "comment_id":   int(r["comment_id"]),
+                        "comment_id":   r["comment_id"],
                         "intent":       r["intent"],
                         "label_source": r.get("source"),
                         "latency_ms":   r.get("latency_ms"),
@@ -235,22 +227,36 @@ class TrainPipeline:
 
         # ── LEVEL 3: fresh run ────────────────────────────────────────────────
         self.logger.info(f"[{PipelineEnum.LABELING}] Labeling with LLM...")
-        df          = self.storage.load_df(stage="processed_data", filename="clean_data.csv")
-        comment_ids = df["comment_id"].dropna().astype(int).tolist() \
+        df = self.storage.load_df(stage="processed_data", filename="clean_data.csv")
+        comment_ids = df["comment_id"].dropna().astype(str).tolist() \
                     if "comment_id" in df.columns else []
 
         # Pre-fetch any existing labels from DB to skip re-labeling
         existing_labels = {}
         try:
+
+            # Pass 1: same version (exact match)
             existing_labels = label_repo.get_labels_for_comments(
                 comment_ids=comment_ids,
                 model_name=self.model_name,
                 version=self.version,
             )
-            self.logger.info(
-                f"[{PipelineEnum.LABELING}] "
-                f"{len(existing_labels)} existing labels found in DB — will skip those."
-            )
+
+            # Pass 2: fill gaps from older versions with the same LLM source
+            missing_ids = [cid for cid in comment_ids if cid not in existing_labels]
+            if missing_ids:
+                cross_version_labels = label_repo.get_labels_for_comments_any_version(
+                    comment_ids=missing_ids,
+                    model_name=self.model_name,
+                    label_source=self.llm_provider.generation_model_id,  # e.g. "gpt-4o-mini"
+                    exclude_version=self.version,
+                )
+                self.logger.info(
+                    f"[{PipelineEnum.LABELING}] Cross-version cache hit: "
+                    f"{len(cross_version_labels)} labels reused from older versions."
+                )
+                existing_labels.update(cross_version_labels)
+
         except Exception as e:
             # DB lookup failure is non-fatal — just re-label everything
             self.logger.warning(
@@ -285,9 +291,11 @@ class TrainPipeline:
 
         # ── Write new labels to DB (after CSV is safe) ────────────────────────
         if new_db_records:
+            clean_records = [r for r in new_db_records if r.get("intent") is not None]
+
             try:
                 inserted = label_repo.insert_labels_batch(
-                    records=new_db_records,
+                    records=clean_records,
                     model_name=self.model_name,
                     version=self.version,
                 )
@@ -308,7 +316,6 @@ class TrainPipeline:
             f"llm={cost_tracker['llm_count']}, "
             f"cost=${cost_tracker['total_cost']:.4f}"
         )
-
 
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 4 — DATA TRANSFORMATION
@@ -331,12 +338,9 @@ class TrainPipeline:
             f"[{PipelineEnum.TRANSFORMATION}] Done — {len(transformed_df)} rows saved."
         )
 
-
-
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 5 — PREPARE TRAINING ASSETS
     # ─────────────────────────────────────────────────────────────────────────
-
 
     def prepare_training_assets(
         self,
@@ -354,7 +358,6 @@ class TrainPipeline:
         self.logger.info(f"[{PipelineEnum.PRE_TRAINING}] Preparing training assets...")
         df     = self.storage.load_df(stage="processed_data", filename="data_transformation.csv")
 
-        # load_training_config() = your default YAML from disk/S3
         # overrides = only what the caller wants to change this run
         config = load_training_config()
 
@@ -410,8 +413,6 @@ class TrainPipeline:
             f"[{PipelineEnum.PRE_TRAINING}] All training assets ready. "
             f"Overrides: {overrides or 'none (using YAML defaults)'}"
         )
-
-
 
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 6 — GPU TRAINING + EVALUATION
@@ -541,23 +542,33 @@ class TrainPipeline:
         )
 
         # Download full adapter folder for evaluation
-        adapter_files = self.storage.list_prefix(
-            f"{self.model_name}/{self.version}/training/model_output/"
-        ) if self.storage._s3 else []
+        ADAPTER_FILES = [
+            "adapter_config.json",
+            "adapter_model.safetensors",
+            "tokenizer_config.json",
+            "tokenizer.json",
+            "tokenizer.model",
+            "special_tokens_map.json",
+        ]
 
-        for s3_key in adapter_files:
-            filename    = os.path.basename(s3_key)
-            local_path  = f"{output_dir}/{filename}"
+        for filename in ADAPTER_FILES:
+            local_path = f"{output_dir}/{filename}"
             if not os.path.exists(local_path):
-                self.storage.download_to_disk(
-                    stage="training/model_output",
-                    filename=filename,
-                    abs_path=local_path,
-                )
+                try:
+                    self.storage.download_to_disk(
+                        stage="training/model_output",
+                        filename=filename,
+                        abs_path=local_path,
+                    )
+                except FileNotFoundError:
+                    # Some files are optional depending on the model/tokenizer
+                    self.logger.warning(
+                        f"[{PipelineEnum.EVALUATION}] Optional adapter file not found: {filename} — skipping."
+                    )
 
         evaluator = ModelEvaluation(
             adapter_path=output_dir,
-            base_model=self.config.get("model_name_or_path", "Qwen/Qwen2.5-1.5B-Instruct"),
+            base_model=self.config.MODEL_NAME,
             benchmark_df=benchmark_df,
         )
         metrics = evaluator.evaluate()

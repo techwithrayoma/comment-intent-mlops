@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+
 class PipelineEnum(StrEnum):
     
     PIPELINE = "PIPELINE"
@@ -11,8 +12,3 @@ class PipelineEnum(StrEnum):
     PRE_TRAINING = "PRE_TRAINING"
     TRAINING = "TRAINING"
     EVALUATION = "EVALUATION"
-
-    
-class StorageType(StrEnum):
-    LOCAL = "LOCAL"
-    S3 = "S3"

@@ -28,9 +28,7 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# ml
-ml/data/
+# src
+src/assets/comment-intent
 
-# dvc
-BarqPulse/dvc_storage/
-.dvc/cache/
+

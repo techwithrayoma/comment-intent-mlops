@@ -11,18 +11,7 @@ from src.core.logger import pipeline_logger
 
 logger = pipeline_logger
 
-
 class ModelTraining:
-    """
-    Handles all model training preparation and execution.
-
-    Responsibilities:
-        - Split data into train/val sets
-        - Register dataset for LLaMA-Factory
-        - Build training config YAML
-        - Run LLaMA-Factory fine-tuning via CLI
-        - Log everything to MLflow
-    """
 
     LABEL_MAP = {
         "complaint":  "Complaint",
@@ -33,13 +22,6 @@ class ModelTraining:
     }
 
     def __init__(self, df: pd.DataFrame, config: dict, project: str, version: str, storage=None):
-        """
-        Args:
-            df      : Transformed DataFrame with columns [instruction, input, output]
-            config  : Training config dict loaded from YAML
-            project : Model/project name  (e.g. "ladybug")
-            version : Pipeline version    (e.g. "v1")
-        """
         self.df      = df
         self.config  = config
         self.project = project
@@ -157,8 +139,6 @@ class ModelTraining:
 
         return train_df, val_df
 
-
-
     # ------------------------------------------------------------------ #
     #  DATASET REGISTRATION                                                #
     # ------------------------------------------------------------------ #
@@ -188,8 +168,6 @@ class ModelTraining:
         }
         logger.info("[ModelTraining] dataset_info.json built")
         return dataset_info
-
-
 
     # ------------------------------------------------------------------ #
     #  YAML CONFIG BUILDER                                                 #
@@ -225,8 +203,6 @@ class ModelTraining:
         )
 
         return config
-
-
 
     # ------------------------------------------------------------------ #
     #  TRAINING RUNNER                                                     #

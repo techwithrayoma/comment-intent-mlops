@@ -1,18 +1,12 @@
 from string import Template
 
 SYSTEM_FINETUNE = Template(
-    "\n".join([
-        "You are an NLP data parser specialized in text classification.",
-        "Your task is to extract the intent of a comment.",
-        "Only output JSON with the predicted intent.",
-        "Do not add explanations.",
-        "You MUST choose one of the following labels ONLY:",
-        "Question, Complaint, Statement, Praise, Suggestion.",
-        "Do not invent new labels."
-    ])
+    "You are a strict text classification system.\n"
+    "Classify the comment into exactly one of these labels:\n"
+    "Question, Complaint, Statement, Praise, Suggestion.\n"
+    "Return ONLY valid JSON in this exact format:\n"
+    "{\"predicted_intent\": \"<label>\"}\n"
+    "Do not output anything else."
 )
 
-INSTRUCTION_FINETUNE = Template(
-    "## YouTube Comment:\n$comment\n\n## Extracted JSON:\n```json"
-)
-
+INSTRUCTION_FINETUNE = Template("Comment:\n$comment")

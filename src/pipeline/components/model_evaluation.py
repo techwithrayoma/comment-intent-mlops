@@ -2,11 +2,8 @@ import json
 import mlflow
 import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, f1_score
-import torch
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-
+from src.pipeline.templates.finetune_data import SYSTEM_FINETUNE, INSTRUCTION_FINETUNE
 from src.core.logger import pipeline_logger
 
 logger = pipeline_logger
@@ -23,13 +20,6 @@ class ModelEvaluation:
         benchmark_df:   pd.DataFrame  = None,
         benchmark_path: str           = None,
     ):
-        """
-        Args:
-            adapter_path   : Local path to the LoRA adapter (output_dir from training)
-            base_model     : HuggingFace model ID used during training
-            benchmark_df   : DataFrame with columns [comment, intent]
-            benchmark_path : Path to benchmark CSV (fallback if benchmark_df is None)
-        """
         self.adapter_path   = adapter_path
         self.base_model     = base_model
         self.benchmark_df   = benchmark_df
@@ -62,6 +52,10 @@ class ModelEvaluation:
         if self._pipeline is not None:
             return
 
+        import torch
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+
         logger.info(f"[ModelEvaluation] Loading base model: {self.base_model}")
         logger.info(f"[ModelEvaluation] Loading adapter:    {self.adapter_path}")
 
@@ -93,38 +87,46 @@ class ModelEvaluation:
     # ─────────────────────────────────────────────────────────────────────────
 
     def predict(self, comment: str) -> str:
-        """
-        Run inference on a single comment.
-        Returns one of: Complaint | Question | Suggestion | Statement | Praise
-        Falls back to 'Statement' on any parse failure.
-        """
         self._load_pipeline()
 
-        prompt = (
-            f"Classify the intent of the following comment.\n"
-            f"Return JSON only: {{\"predicted_intent\": \"<label>\"}}\n\n"
-            f"Comment: {comment}"
+        from transformers import AutoTokenizer
+
+        # rebuild tokenizer reference from pipeline
+        tokenizer = self._pipeline.tokenizer
+
+        messages = [
+            {"role": "system", "content": SYSTEM_FINETUNE.substitute()},
+            {"role": "user",   "content": INSTRUCTION_FINETUNE.substitute(comment=comment)},
+        ]
+
+        prompt = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
         )
 
-        output    = self._pipeline(prompt)[0]["generated_text"]
+        output = self._pipeline(prompt)[0]["generated_text"]
+
         generated = output[len(prompt):].strip()
 
         try:
-            parsed = json.loads(generated)
-            intent = parsed.get("predicted_intent", "").strip().capitalize()
+            start = generated.find("{")
+            end   = generated.rfind("}") + 1
+
+            if start == -1 or end == 0:
+                raise ValueError("No JSON found")
+
+            intent = json.loads(generated[start:end]).get("predicted_intent", "").strip().capitalize()
+
             if intent not in VALID_LABELS:
-                logger.warning(
-                    f"[ModelEvaluation] Invalid prediction '{intent}' "
-                    f"for: {comment[:50]!r} → fallback to Statement"
-                )
-                return "Statement"
+                logger.warning(f"[ModelEvaluation] Invalid prediction '{intent}' for: {comment[:50]!r}")
+                return None
+
             return intent
-        except Exception:
-            logger.warning(
-                f"[ModelEvaluation] JSON parse failed for: {comment[:50]!r} "
-                "→ fallback to Statement"
-            )
-            return "Statement"
+
+        except Exception as e:
+            logger.warning(f"[ModelEvaluation] JSON parse failed for: {comment[:50]!r} | {e}")
+            return None
 
     # ─────────────────────────────────────────────────────────────────────────
     # EVALUATION LOOP

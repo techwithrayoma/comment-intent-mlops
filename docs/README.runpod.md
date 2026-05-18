@@ -45,7 +45,7 @@ cd barq
 
 ```bash
 # Core project requirements
-pip install --no-cache-dir -r ladybug/requirements.txt
+pip install --no-cache-dir -r src/requirements.txt
 
 # LLM fine-tuning stack
 pip install --no-cache-dir \
@@ -64,14 +64,14 @@ cd LLaMA-Factory && pip install -e . && cd ..
 ### 5. Set environment variables
 
 ```bash
-set -a && source docker/env/.env.gpu_worker && set +a
-export PYTHONPATH=/root/barq
+set -a && source src/.env && set +a
+export PYTHONPATH=/root/src
 ```
 
 ### 6. Start the GPU worker
 
 ```bash
-python -m celery -A ladybug.app.celery_app:celery_app worker \
+python -m celery -A src.app.celery_app:celery_app worker \
   --loglevel=info \
   --queues=gpu \
   --hostname=gpu-worker@%h \

@@ -1,8 +1,8 @@
-from datetime import datetime
-
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+
 from src.db.models.comment import Comment
+
 
 class CommentRepository:
 
@@ -19,14 +19,11 @@ class CommentRepository:
         
         query = (
             self.db.query(
-                Comment.id.label("comment_id"),
+                Comment.comment_id.label("comment_id"),
                 Comment.comment_text,
                 Comment.published_at,
-                Comment.source,
-                Comment.language,
             )
             .filter(
-                Comment.is_spam == False,
                 text("char_length(comment_text) >= :min_len"),
                 text("char_length(comment_text) <= :max_len"),
             )

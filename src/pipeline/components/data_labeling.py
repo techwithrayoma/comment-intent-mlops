@@ -21,13 +21,7 @@ class DataLabeling:
         llm:            OpenAIProvider,
         existing_labels: dict[int, object] | None = None,
     ):
-        """
-        Args:
-            clean_data      : DataFrame from DataClean — must have 'comment', 'comment_id'
-            llm             : LLM provider (OpenAI)
-            existing_labels : {comment_id: ModelIntentLabel} pre-fetched from DB.
-                              Pass None or {} to force LLM labeling for all rows.
-        """
+
         self.clean_data      = clean_data
         self.llm             = llm
         self.existing_labels = existing_labels or {}
@@ -36,32 +30,43 @@ class DataLabeling:
             "total_cost":       0.0,
             "llm_cost":         0.0,
             "llm_count":        0,
-            "cached_count":     0,   # rows that came from DB cache
+            "cached_count":     0,
             "total_tokens_in":  0,
             "total_tokens_out": 0,
         }
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
-    def _extract_valid_intent(self, raw_text: str, comment: str) -> str:
-        """Parse LLM JSON response and return a valid intent label."""
+    def _extract_valid_intent(self, raw_text: str, comment: str) -> str | None:
+        """
+        Parse LLM JSON response and return a valid intent label.
+        Returns None if parsing fails — caller decides what to do.
+        """
         try:
-            cleaned = raw_text.replace("```json", "").replace("```", "").strip()
-            parsed  = json.loads(cleaned)
-            intent  = parsed.get("predicted_intent")
+            start = raw_text.find("{")
+            end   = raw_text.rfind("}") + 1
+
+            if start == -1 or end == 0:
+                raise ValueError("No JSON object found")
+
+            intent = json.loads(raw_text[start:end]).get("predicted_intent", "")
 
             if isinstance(intent, str):
                 intent = intent.strip().capitalize()
 
             if intent not in VALID_LABELS:
-                logger.warning(f"[DataLabeling] Invalid label '{intent}' → fallback to Statement")
-                return "Statement"
+                logger.warning(
+                    f"[DataLabeling] Invalid label '{intent}' for: {comment[:50]!r}"
+                )
+                return None
 
             return intent
 
-        except Exception:
-            logger.warning(f"[DataLabeling] JSON parse failed for: {comment[:50]!r} → fallback")
-            return "Statement"
+        except Exception as e:
+            logger.warning(
+                f"[DataLabeling] JSON parse failed for: {comment[:50]!r} | error: {e}"
+            )
+            return None
 
     # ── Main ──────────────────────────────────────────────────────────────────
 
@@ -93,8 +98,15 @@ class DataLabeling:
                     "source":     cached.label_source,
                     "confidence": 1.0,
                     "latency_ms": cached.latency_ms,
-                    "cost_usd":   0.0,   # already paid for
+                    "cost_usd":   0.0,
                     "stage":      "training",
+                })
+                new_db_records.append({ 
+                    "comment_id":   comment_id,
+                    "intent":       cached.intent,
+                    "label_source": cached.label_source,
+                    "latency_ms":   cached.latency_ms,
+                    "cost_usd":     0.0,       # reused, cost nothing
                 })
                 self.cost_tracker["cached_count"] += 1
                 continue
@@ -122,6 +134,7 @@ class DataLabeling:
             self.cost_tracker["total_tokens_out"]  += completion_tokens
 
             predictions.append({
+                "comment_id": comment_id,
                 "comment":    comment,
                 "intent":     intent,
                 "source":     self.llm.generation_model_id,

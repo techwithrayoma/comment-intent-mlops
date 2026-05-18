@@ -11,10 +11,10 @@ class ModelIntentLabelRepository:
 
     def get_labels_for_comments(
         self,
-        comment_ids: list[int],
+        comment_ids: list[str],
         model_name:  str,
         version:     str,
-    ) -> dict[int, ModelIntentLabel]:
+    ) -> dict[str, ModelIntentLabel]:
         """
         Bulk-fetch existing labels for the given comment_ids.
 
@@ -35,7 +35,46 @@ class ModelIntentLabelRepository:
             .all()
         )
 
-        return {row.comment_id: row for row in rows}
+        # get_labels_for_comments
+        return {str(row.comment_id): row for row in rows}
+
+
+    def get_labels_for_comments_any_version(
+        self,
+        comment_ids:  list[str],
+        model_name:   str,
+        label_source: str,        # e.g. "gpt-4o-mini"
+        exclude_version: str,     # don't re-use the current version (already handled)
+    ) -> dict[str, ModelIntentLabel]:
+        """
+        Fallback lookup: find labels from older versions labeled by the same source.
+        Used to avoid re-calling the LLM when the label is already trustworthy.
+        """
+        if not comment_ids:
+            return {}
+
+        rows = (
+            self.db.query(ModelIntentLabel)
+            .filter(
+                ModelIntentLabel.comment_id.in_(comment_ids),
+                ModelIntentLabel.model_name  == model_name,
+                ModelIntentLabel.label_source == label_source,
+                ModelIntentLabel.version     != exclude_version,
+            )
+            .order_by(ModelIntentLabel.version.desc())  # prefer most recent version
+            .all()
+        )
+
+
+        # get_labels_for_comments_any_version
+        seen = {}
+        for row in rows:
+            key = str(row.comment_id)
+            if key not in seen:
+                seen[key] = row
+        
+        return seen
+
 
     def insert_labels_batch(
         self,
