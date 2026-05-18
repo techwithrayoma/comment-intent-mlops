@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     
     # GPU Configuration
     # =========================
-    GPU_TYPE=str
-    GPU_COST_PER_HOUR_USD=float
+    GPU_TYPE:str
+    GPU_COST_PER_HOUR_USD:float
 
     class Config:
         env_file = str(Path(__file__).resolve().parents[1] / ".env")
