@@ -2,18 +2,19 @@
 set -e
 
 echo "=== Installing core requirements ==="
+pip install --no-cache-dir --ignore-installed blinker
 pip install --no-cache-dir -r src/requirements.txt
+
+if [ ! -d "LLaMA-Factory" ]; then
+    echo "=== Cloning LLaMA-Factory ==="
+    git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git
+fi
+
+echo "=== Installing LLaMA-Factory ==="
+cd LLaMA-Factory && pip install -e . && cd ..
 
 echo "=== Installing GPU requirements ==="
 pip install --no-cache-dir -r src/requirements.gpu.txt
-
-if [ ! -d "LLaMA-Factory" ]; then
-    echo "=== Installing LLaMA-Factory ==="
-    git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git
-    cd LLaMA-Factory && pip install -e . && cd ..
-else
-    echo "=== LLaMA-Factory already installed — skipping ==="
-fi
 
 echo "=== Setting env ==="
 set -a && source src/.env && set +a

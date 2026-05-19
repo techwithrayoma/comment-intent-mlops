@@ -228,7 +228,7 @@ class ModelTraining:
         # ── GPU config from YAML ──────────────────────────────────────────────
         settings = get_settings()
         gpu_type          = settings.GPU_TYPE
-        gpu_cost_per_hour = settings.GPU_COST_PER_HOUR
+        gpu_cost_per_hour_usd = settings.GPU_COST_PER_HOUR_USD
 
         start_time = time.time()
 
@@ -301,7 +301,7 @@ class ModelTraining:
             # ── GPU time + cost ───────────────────────────────────────────────
             duration_sec  = time.time() - start_time
             gpu_hours     = duration_sec / 3600
-            gpu_cost_usd  = gpu_hours * gpu_cost_per_hour
+            gpu_cost_usd  = gpu_hours * gpu_cost_per_hour_usd
             total_cost    = round(gpu_cost_usd + labeling_cost_usd, 6)
 
             mlflow.log_metric("training_time_sec", round(duration_sec, 2))

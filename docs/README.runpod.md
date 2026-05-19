@@ -50,7 +50,7 @@ Create `src/.env`:
 ### 5. Run the setup script
 
 ```bash
-bash src/scripts/setup_gpu_worker.sh
+bash scripts/start_gpu_worker.sh
 ```
 
 This installs all requirements, sets up LLaMA-Factory, and starts the Celery worker. You're done.

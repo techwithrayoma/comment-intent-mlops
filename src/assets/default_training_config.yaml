@@ -55,9 +55,3 @@ report_to: none        # injected by pipeline — keeping here as a visible remi
 
 # ── Hub ───────────────────────────────────────────────────────────────────────
 push_to_hub: false     # upload to S3 instead — pipeline handles this
-
-
-# ── RunPod / GPU ──────────────────────────────────────────────────────────────
-# These are used for cost tracking in the DB — not passed to LLaMA-Factory
-gpu_type: "RTX 4090"
-gpu_cost_per_hour: 1.50        # USD/hr on RunPod
